@@ -17,7 +17,7 @@ fn read_version(transaction_hex: &str)-> u32 {
 }
 
 fn main() {
-    let version = read_version("0000000000001c47896df6c74aa8351f371feef54d0b9a90516d74ebe4d0d828");
+    let version = read_version("000000000001c47896df6c74aa8351f371feef54d0b9a90516d74ebe4d0d828");
     println!("version: {}",version);
    
 }

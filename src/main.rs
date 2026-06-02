@@ -61,3 +61,16 @@ fn main() {
     println!("version: {}", version);
     println!("input length: {}", input_length);
 }
+
+#[cfg(test)]
+
+mod test {
+    use super::read_compact_size;
+
+    #[test]
+    fn test_read_compact_size(){
+        let mut bytes = [1_u8].as_slice();
+        let count=read_compact_size(&mut bytes);
+        assert_eq!(count, 1_u64);
+    }
+}

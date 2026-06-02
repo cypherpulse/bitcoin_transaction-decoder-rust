@@ -1,6 +1,10 @@
+use core::fmt;
 use std::io::Read;
 
+
 #[allow(unused)]
+
+&[derive(Debug)]
 
 struct Input{
     txid: [u8; 32],
@@ -8,6 +12,20 @@ struct Input{
     script_sig: Vec<u8>,
     sequence: u32,
 }
+
+
+//this was replaced by the #[derive(Debug)] above, which automatically generates an implementation of the Debug trait for the Input struct. The Debug trait allows us to format the struct in a way that is useful for debugging purposes, such as printing its fields and values in a readable format. By using #[derive(Debug)], we can easily print instances of the Input struct without having to manually implement the fmt::Debug trait ourselves.
+
+// impl fmt::Debug for Input {
+//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+//         f.debug_struct("Input")
+//             .field("txid", &self.txid)
+//             .field("output_index", &self.output_index)
+//             .field("script_sig",&self.script_sig)
+//             .field("sequence", &self.sequence)
+//             .finish()
+//     }
+// }
 
 
 fn read_compact_size(transaction_bytes: &mut &[u8])->u64{
@@ -31,7 +49,6 @@ fn read_compact_size(transaction_bytes: &mut &[u8])->u64{
             transaction_bytes.read(&mut buffer).unwrap();
             u64::from_le_bytes(buffer)
         },
-        _ => unreachable!(),
     }
 }
 

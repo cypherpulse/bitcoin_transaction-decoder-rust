@@ -3,6 +3,12 @@ use std::io::Read;
 #[allow(unused)]
 
 
+
+fn read_compact_size(transaction_bytes: &mut &[u8])->u64{
+    
+}
+
+
 fn read_version(transaction_bytes: &mut &[u8])-> u32 {
     // let transaction_bytes = hex::decode(transaction_hex).unwrap();
 

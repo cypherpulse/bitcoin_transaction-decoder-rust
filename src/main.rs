@@ -86,6 +86,12 @@ fn read_u32(transaction_bytes: &mut &[u8])-> u32 {
     u32::from_le_bytes(buffer)
 }
 
+fn read_64(transaction_bytes: &mut &[u8])-> u64 {
+    let mut buffer=[0; 8];
+    transaction_bytes.read(&mut buffer).unwrap();
+    u64::from_le_bytes(buffer)
+}
+
 fn read_txid(transaction_bytes: &mut &[u8])-> String {
     let mut buffer = [0; 32];
     transaction_bytes.read(&mut buffer).unwrap();
@@ -118,6 +124,19 @@ fn main() {
             output_index,
             script_sig,
             sequence,
+        });
+    }
+    
+    let output_count = read_compact_size(&mut bytes_slice);
+    let mut outputs = vec![];
+
+    for _ in 0..output_count {
+        let amount = read_64(&mut bytes_slice);
+        let script_pubkey = read_script(&mut bytes_slice);
+
+        outputs.push(Output{
+            amount,
+            script_pubkey,
         });
     }
     

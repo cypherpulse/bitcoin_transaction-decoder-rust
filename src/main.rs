@@ -139,10 +139,11 @@ fn main() {
             script_pubkey,
         });
     }
-    
+
     let transaction = Transaction {
         version,
         inputs,
+        outputs
     };
 
     println!("transaction: {}", serde_json::to_string_pretty(&transaction).unwrap());

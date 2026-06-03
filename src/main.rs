@@ -1,10 +1,11 @@
 use core::fmt;
 use std::io::Read;
+use serde::{Serialize};
 
 
 #[allow(unused)]
 
-&[derive(Debug)]
+&[derive(Debug,Serialize)]
 
 struct Input{
     txid: [u8; 32],
@@ -106,7 +107,7 @@ fn main() {
             sequence,
         });
     }
-
+    let json_inputs = serde_json::to_string_pretty(&inputs).unwrap();
     println!("bytes slice first element: {:?}", bytes_slice.first());
     println!("version: {}", version);
     println!("input count: {}", input_count);

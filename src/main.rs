@@ -7,6 +7,7 @@ use serde::{Serialize};
 struct Transaction {
     version: u32,
     inputs: Vec<Input>,
+    outputs:Vec<Output>,
 }
 #[allow(unused)]
 #[derive(Debug,Serialize)]
@@ -17,6 +18,12 @@ struct Input{
     output_index: u32,
     script_sig: String,
     sequence: u32,
+}
+
+#[derive(Debug,Serialize)]
+struct Output{
+    amount: u64,
+    script_pubkey: String,
 }
 
 

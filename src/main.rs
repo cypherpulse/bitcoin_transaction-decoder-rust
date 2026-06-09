@@ -1,52 +1,8 @@
 use core::fmt;
 use std::io::Read;
-use serde::{Serialize};
+use transaction::{Amount, BitcoinValue, Input, Output, Transaction};
+mod transaction;
 
-
-#[derive(Debug,Serialize)]
-struct Transaction {
-    version: u32,
-    inputs: Vec<Input>,
-    outputs:Vec<Output>,
-}
-#[allow(unused)]
-#[derive(Debug,Serialize)]
-
-
-struct Input{
-    txid: String,
-    output_index: u32,
-    script_sig: String,
-    sequence: u32,
-}
-
-struct Amount(u64);
-
-impl Amount {
-    pub fn to_btc(&self) -> f64 {
-        self.0 as f64 / 100_000_000.0
-    }
-}
-
-#[derive(Debug,Serialize)]
-struct Output{
-    amount: f64,
-    script_pubkey: String,
-}
-
-
-//this was replaced by the #[derive(Debug)] above, which automatically generates an implementation of the Debug trait for the Input struct. The Debug trait allows us to format the struct in a way that is useful for debugging purposes, such as printing its fields and values in a readable format. By using #[derive(Debug)], we can easily print instances of the Input struct without having to manually implement the fmt::Debug trait ourselves.
-
-// impl fmt::Debug for Input {
-//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-//         f.debug_struct("Input")
-//             .field("txid", &self.txid)
-//             .field("output_index", &self.output_index)
-//             .field("script_sig",&self.script_sig)
-//             .field("sequence", &self.sequence)
-//             .finish()
-//     }
-// }
 
 
 fn read_compact_size(transaction_bytes: &mut &[u8])->u64{
@@ -97,7 +53,7 @@ fn read_u32(transaction_bytes: &mut &[u8])-> u32 {
 fn read_amount(transaction_bytes: &mut &[u8])-> Amount {
     let mut buffer=[0; 8];
     transaction_bytes.read(&mut buffer).unwrap();
-    Amount(u64::from_le_bytes(buffer))
+    Amount::from_sat(u64::from_le_bytes(buffer))
 }
 
 fn read_txid(transaction_bytes: &mut &[u8])-> String {
@@ -139,7 +95,7 @@ fn main() {
     let mut outputs = vec![];
 
     for _ in 0..output_count {
-        let amount = read_amount(&mut bytes_slice).to_btc();
+        let amount = read_amount(&mut bytes_slice);
         let script_pubkey = read_script(&mut bytes_slice);
 
         outputs.push(Output{

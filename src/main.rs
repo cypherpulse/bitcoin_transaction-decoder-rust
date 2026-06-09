@@ -1,6 +1,6 @@
 use core::fmt;
 use std::io::Read;
-use transaction::{Amount, BitcoinValue, Input, Output, Transaction};
+use transaction::{Amount, BitcoinValue, Input, Output, Transaction,Txid};
 mod transaction;
 use sha2::{Digest,Sha256};
 
@@ -56,11 +56,10 @@ fn read_amount(transaction_bytes: &mut &[u8])-> Amount {
     Amount::from_sat(u64::from_le_bytes(buffer))
 }
 
-fn read_txid(transaction_bytes: &mut &[u8])-> String {
+fn read_txid(transaction_bytes: &mut &[u8])-> Txid {
     let mut buffer = [0; 32];
     transaction_bytes.read(&mut buffer).unwrap();
-    buffer.reverse();
-    hex::encode(buffer)
+    Txid::from_bytes(buffer)
 }
 
 fn read_script(transaction_bytes: &mut &[u8])-> String {
@@ -70,7 +69,7 @@ fn read_script(transaction_bytes: &mut &[u8])-> String {
     hex::encode(buffer)
 }
 
-fn hash_raw_transaction(raw_transaction: &[u8])-> [u8; 32]{
+fn hash_raw_transaction(raw_transaction: &[u8])->Txid{
     let mut hasher = Sha256::new();
     hasher.update(&raw_transaction);
     let hash1 = hasher.finalize();
@@ -79,7 +78,7 @@ fn hash_raw_transaction(raw_transaction: &[u8])-> [u8; 32]{
     hasher.update(&hash1);
     let hash2 = hasher.finalize();
 
-    hash2.into()
+    Txid::from_bytes(hash2.into())
 }
 
 
@@ -122,6 +121,7 @@ fn main() {
     let transaction_id = hash_raw_transaction(&transaction_bytes);
 
     let transaction = Transaction {
+        transaction_id,
         version,
         inputs,
         outputs,

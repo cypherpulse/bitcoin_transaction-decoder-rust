@@ -4,18 +4,19 @@ use serde::{Serialize, Serializer};
 
 #[derive(Debug,Serialize)]
 pub struct Transaction {
+    pub transaction_id: Txid,
     pub version: u32,
     pub inputs: Vec<Input>,
     pub outputs:Vec<Output>,
     pub lock_time: u32,
 }
 
-#[derive(Debug,Serialize)]
+#[derive(Debug)]
 pub struct Txid([u8; 32]);
 
 impl Txid {
-    pub fn from_bytes(bytes: &[u8]) -> Txid {
-        Txid(txid_bytes)
+    pub fn from_bytes(bytes: [u8; 32]) -> Txid {
+        Txid(bytes)
     }
 }
 
@@ -23,7 +24,7 @@ impl Serialize for Txid {
     fn serialize<S: Serializer>(&self, s:S) -> Result<S::Ok, S::Error>{
         let mut bytes = self.0.clone();
         bytes.reverse();
-        S.Serialize_str(&hex::encode(bytes))
+        s.serialize_str(&hex::encode(bytes))
     }
 }
 
@@ -32,7 +33,7 @@ impl Serialize for Txid {
 
 
 pub struct Input{
-    pub  txid: String,
+    pub  txid: Txid,
     pub output_index: u32,
     pub script_sig: String,
     pub sequence: u32,

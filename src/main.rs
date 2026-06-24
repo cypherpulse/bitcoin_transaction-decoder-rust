@@ -1,9 +1,8 @@
-
 use clap::Parser;
 
 #[derive(Parser)]
-#[command(name="transaction-decoder")]
-#[command(version="1.0")]
+#[command(name = "transaction-decoder")]
+#[command(version = "1.0")]
 #[command(about="Decode a Bitcoin transaction from hex to JSON", long_about = None)]
 struct Cli {
     #[arg(

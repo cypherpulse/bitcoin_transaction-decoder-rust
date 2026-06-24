@@ -1,21 +1,70 @@
-use serde::{Serialize, Serializer};
 
-#[derive(Debug, Serialize)]
+use serde::{Serialize, Serializer};
+use std::io::BufRead;
+use std::fmt;
+use sha2::{Digest, Sha256};
+
+
+#[derive(Debug)]
+pub enum Error {
+    Io(std::io::Error)
+}
+
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter) ->fmt::Result{
+        match *self{
+            Error::Io(ref e)=>write!(f, "IO error: {}", e),
+        }
+    }
+}
+
+impl std::error::Error for Error {}
+
+#[derive(Debug)]
 pub struct Transaction {
-    pub transaction_id: Txid,
     pub version: u32,
-    pub inputs: Vec<Input>,
-    pub outputs: Vec<Output>,
+    pub inputs: Vec<TxIn>,
+    pub outputs: Vec<TxOut>,
     pub lock_time: u32,
+}
+
+impl Transaction {
+    pub fn txid(&self) -> Txid {
+        let txid_data =vec![0; 32];
+        Txid::from_raw_transaction(txid_data)
+    }
+}
+
+impl Serialize for Transaction {
+    fn serialize<S: Serializer>(&self, serializer: S)-> Result<S::Ok, S::Error>{
+       let mut tx = serializer.serialize_struct("Transaction", 5)?;
+       tx.serialize_field("transaction id",&self.txid())?;
+       tx.serialize_field("version", &self.version)?;
+       tx.serialize_field("inputs", &self.inputs)?;
+       tx.serialize_field("outputs", &self.outputs)?;
+       tx.serialize_field("lock_time", &self.lock_time)?;
+       tx.end()
+    }
 }
 
 #[derive(Debug)]
 pub struct Txid([u8; 32]);
 
 impl Txid {
-    pub fn from_bytes(bytes: [u8; 32]) -> Txid {
+    pub fn from_hash(bytes: [u8; 32]) -> Txid {
         Txid(bytes)
     }
+
+
+    let mut hasher = Sha256::new();
+    hasher.update(&raw_transaction);
+    let hash1 = hasher.finalize();
+
+    let mut hasher = Sha256::new();
+    hasher.update(&hash1);
+    let hash2 = hasher.finalize();
+
+    Txid::from_hash(hash2.into())
 }
 
 impl Serialize for Txid {
@@ -29,7 +78,7 @@ impl Serialize for Txid {
 #[allow(unused)]
 #[derive(Debug, Serialize)]
 
-pub struct Input {
+pub struct TxIn {
     pub txid: Txid,
     pub output_index: u32,
     pub script_sig: String,
@@ -55,7 +104,7 @@ impl BitcoinValue for Amount {
     }
 }
 #[derive(Debug, Serialize)]
-pub struct Output {
+pub struct TxOut {
     #[serde(serialize_with = "as_btc")]
     pub amount: Amount,
     pub script_pubkey: String,
@@ -64,4 +113,135 @@ pub struct Output {
 fn as_btc<S: Serializer, T: BitcoinValue>(t: &T, s: S) -> Result<S::Ok, S::Error> {
     let btc = t.to_btc();
     s.serialize_f64(t.to_btc())
+}
+
+#[derive(Debug, Serialize)]
+pub struct CompactSize(pub u64);
+
+pub trait Decodable: Sized {
+    fn consensus_decode<R: BufRead + ?Sized>(r:&mut R)-> Result<Self, Error>;
+}
+
+impl Decodable for u8 {
+    fn consensus_decode<R: BufRead + ?Sized>(r: &mut R) -> Result<Self, Error> {
+        let mut buffer = [0; 1];
+        r.read_exact(&mut buffer).map_err(Error::Io)?;
+        Ok(buffer[0])
+    }
+}
+
+impl Decodable for u16 {
+    fn consensus_decode<R: BufRead + ?Sized>(r: &mut R) -> Result<Self, Error> {
+        let mut buffer = [0; 2];
+        r.read_exact(&mut buffer).map_err(Error::Io)?;
+        Ok(u16::from_le_bytes(buffer))
+    }
+}
+
+impl Decodable for u32 {
+    fn consensus_decode<R: BufRead + ?Sized>(r: &mut R)-> Result<Self, Error>{
+        let mut buffer =[0; 4];
+        r.read_exact(&mut buffer).map_err(Error::Io)?;
+        Ok(u32::from_le_bytes(buffer))
+    }
+}
+
+impl Decodable for u64 {
+    fn consensus_decode<R: BufRead + ?Sized>(r: &mut R) -> Result<Self, Error> {
+        let mut buffer = [0; 8];
+        r.read_exact(&mut buffer).map_err(Error::Io)?;
+        Ok(u64::from_le_bytes(buffer))
+    }
+}
+
+impl Decodable for CompactSize {
+    fn consensus_decode<R: BufRead + ?Sized>(r: &mut R) -> Result<Self, Error> {
+        let n =u8::consensus_decode(r)?;
+
+        match n {
+            0xFF =>{
+                let x = u64::consensus_decode(r)?;
+                Ok(CompactSize(x))
+            },
+            0xFE => {
+                let x = u32::consensus_decode(r)?;
+                Ok(CompactSize(x as u64))
+            },
+            0xFD => {
+                let x = u16::consensus_decode(r)?;
+                Ok(CompactSize(x as u64))
+            }
+            n => Ok(CompactSize(n as u64)),
+        }
+    }
+}
+
+impl Decodable for String {
+    fn consensus_decode<R: BufRead + ?Sized>(r: &mut R) -> Result<Self, Error>{
+        let len = CompactSize::consensus_decode(r)?.0;
+        let mut buffer = vec![0; len as usize];
+        r.read_exact(&mut buffer).map_err(Error::Io)?;
+        Ok(hex::encode(buffer))
+    }
+}
+
+impl Decodable for Vec<TxIn>{
+    fn consensus_decode<R: BufRead + ?Sized>(r: &mut R) -> Result<Self, Error> {
+        let count = CompactSize::consensus_decode(r)?.0;
+        let mut inputs = Vec::with_capacity(count as usize);
+        for _ in 0..count {
+            inputs.push(TxIn::consensus_decode(r)?);
+        }
+        Ok(inputs)
+    }
+}
+
+impl Decodable for TxIn {
+    fn consensus_decode<R: BufRead + ?Sized>(r: &mut R) -> Result<Self, Error> {
+        Ok(TxIn {
+            txid: Txid::consensus_decode(r)?,
+            output_index: u32::consensus_decode(r)?,
+            script_sig: String::consensus_decode(r)?,
+            sequence: u32::consensus_decode(r)?,
+        })
+    }
+}
+
+impl Decodable for Txid {
+    fn consensus_decode<R: BufRead + ?Sized>(r: &mut R)->Result<Self, Error>{
+        let mut buffer = [0; 32];
+        r.read_exact(&mut buffer).map_err(Error::Io)?;
+        Ok(Txid(buffer))
+    }
+}
+
+impl Decodable for Vec<TxOut> {
+    fn consensus_decode<R: BufRead + ?Sized>(r: &mut R) -> Result<Self, Error> {
+        let count = CompactSize::consensus_decode(r)?.0;
+        let mut outputs = Vec::with_capacity(count as usize);
+        for _ in 0..count {
+            outputs.push(TxOut::consensus_decode(r)?);
+        }
+        Ok(outputs)
+    }
+}
+
+impl Decodable for TxOut {
+    fn consensus_decode<R: BufRead + ?Sized>(r: &mut R) -> Result<Self, Error> {
+        Ok(TxOut {
+            amount: Amount::from_sat(u64::consensus_decode(r)?),
+            script_pubkey: String::consensus_decode(r)?,
+        })
+    }
+}
+
+impl Decodable for Transaction {
+    fn consensus_decode<R: BufRead + ?Sized>(r: &mut R) -> Result<Self, Error> {
+        Ok(Transaction {
+            version: u32::consensus_decode(r)?,
+            inputs: Vec::<TxIn>::consensus_decode(r)?,
+            outputs: Vec::<TxOut>::consensus_decode(r)?,
+            lock_time: u32::consensus_decode(r)?,
+        })
+    }
 }
